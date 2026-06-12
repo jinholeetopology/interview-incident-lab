@@ -1,4 +1,6 @@
 import express from 'express';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { accessLog, errorHandler, requestId, type Logger } from '@atlas/shared';
 import { ApiKeyAuthenticator } from './domain/apiKeyAuthenticator.js';
 import { RateLimiter } from './domain/rateLimiter.js';
@@ -25,11 +27,13 @@ export const createApp = (deps: AppDeps): express.Express => {
   const app = express();
   const healthController = new HealthController(deps.readinessService);
   const proxyController = new ProxyController(deps.proxyClients, deps.logger);
+  const publicDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
   app.use(requestId());
   app.use(accessLog(deps.logger));
+  app.use(express.static(publicDir));
   app.use(healthRouter(healthController));
   app.use('/api', apiKeyAuthMiddleware(deps.authenticator, deps.logger));
   app.use('/api', rateLimitMiddleware(deps.rateLimiter, deps.logger));

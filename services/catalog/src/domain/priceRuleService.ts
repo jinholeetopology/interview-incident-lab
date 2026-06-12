@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Cache } from "@atlas/shared";
 import type { ProductRepository } from "../repositories/productRepository.js";
 import type { PriceRuleRepository } from "../repositories/priceRuleRepository.js";
-import { invalidateProductCaches, invalidatePriceCaches } from "./cacheInvalidation.js";
+import { invalidatePriceCaches } from "./cacheInvalidation.js";
 import { notFoundError } from "./errors.js";
 import type { PriceRule, PriceRuleCreateInput } from "./types.js";
 
@@ -19,9 +19,9 @@ export class PriceRuleService {
       throw notFoundError("product", { productId: input.productId });
     }
 
-    await invalidateProductCaches(this.cache, input.productId, { product: true, prices: false });
+    await invalidatePriceCaches(this.cache, input.productId);
     const rule = await this.priceRules.create(randomUUID(), input);
-    await invalidateProductCaches(this.cache, input.productId, { product: true, prices: false });
+    await invalidatePriceCaches(this.cache, input.productId);
     return rule;
   }
 

@@ -18,19 +18,28 @@ export interface CaptureDeps {
 
 export function captureIntentUseCase(deps: CaptureDeps) {
   return async function captureIntent(intentId: string, idempotencyKey: string): Promise<PaymentIntent> {
-    const requestedAt = `${Date.now()}:${process.hrtime.bigint()}`;
     const { result } = await deps.idempotency.run(
-      `capture:${idempotencyKey}:${requestedAt}`,
+      `capture:${intentId}:${idempotencyKey}`,
       CAPTURE_TTL_SEC,
       async () => {
         const intent = await deps.intents.findById(intentId);
         if (!intent) throw new NotFoundError("payment intent not found");
         if (intent.status === "succeeded") return intent;
-        if (intent.status !== "requires_capture" && intent.status !== "processing") {
+        if (intent.status === "processing") {
+          throw new ConflictError("intent capture is already in progress");
+        }
+        if (intent.status !== "requires_capture") {
           throw new ConflictError(`intent is ${intent.status}`);
         }
 
-        const psp = await deps.provider.capture(`${intent.id}:${requestedAt}`, intent.amountCents, intent.currency);
+        const processing = await deps.intents.updateStatus(intent.id, ["requires_capture"], "processing");
+        if (!processing) {
+          const latest = await deps.intents.findById(intent.id);
+          if (latest?.status === "succeeded") return latest;
+          throw new ConflictError(`intent is ${latest?.status ?? "unknown"}`);
+        }
+
+        const psp = await deps.provider.capture(intent.id, intent.amountCents, intent.currency);
         await deps.attempts.record({
           intentId: intent.id,
           status: psp.ok ? "succeeded" : "failed",
@@ -39,15 +48,19 @@ export function captureIntentUseCase(deps: CaptureDeps) {
         });
 
         if (!psp.ok) {
-          await deps.intents.updateStatus(intent.id, ["requires_capture", "processing"], "failed");
+          await deps.intents.updateStatus(intent.id, ["processing"], "failed");
           throw new AppError("CAPTURE_DECLINED", 402, psp.errorCode ?? "capture declined");
         }
 
         const updated = await deps.intents.updateStatus(
           intent.id,
-          ["requires_capture", "processing"],
+          ["processing"],
           "succeeded",
         );
+        if (!updated) {
+          const latest = await deps.intents.findById(intent.id);
+          throw new ConflictError(`intent is ${latest?.status ?? "unknown"}`);
+        }
 
         await deps.settlement.postLedgerEntry({
           account: "merchant_receivable",
@@ -59,8 +72,7 @@ export function captureIntentUseCase(deps: CaptureDeps) {
           externalRef: psp.providerRef,
         });
 
-        const captured = updated ?? { ...intent, status: "succeeded" as const };
-        return { ...captured, providerRef: psp.providerRef };
+        return { ...updated, providerRef: psp.providerRef };
       },
     );
     return result;

@@ -84,4 +84,41 @@ describe("cancelOrder", () => {
       )
     ).rejects.toMatchObject({ code: "ORDER_ALREADY_SHIPPED" });
   });
+
+  it("returns a conflict when committed inventory cannot be released", async () => {
+    const db = {
+      withTx: vi.fn(async <T>(fn: (tx: Db) => Promise<T>) => fn({} as Db))
+    } as unknown as Db;
+
+    await expect(
+      cancelOrder(
+        {
+          db,
+          orders: {
+            findByIdForUpdate: vi.fn(async () => orderFixture("confirmed")),
+            markCancelled: vi.fn()
+          } as never,
+          shipments: {
+            findByOrderIdForUpdate: vi.fn(async () => null)
+          } as never,
+          inventory: {
+            releaseReservation: vi.fn(async () => {
+              const err = new Error("Reservation cannot be released") as Error & {
+                code: string;
+                status: number;
+              };
+              err.code = "RESERVATION_RELEASE_CONFLICT";
+              err.status = 409;
+              throw err;
+            })
+          } as never,
+          payments: { voidIntent: vi.fn() } as never,
+          cache: cacheFixture() as Cache,
+          logger: loggerFixture() as Logger
+        },
+        "order-1",
+        { requestId: "req-1" }
+      )
+    ).rejects.toMatchObject({ code: "RESERVATION_RELEASE_CONFLICT", status: 409 });
+  });
 });

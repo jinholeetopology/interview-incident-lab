@@ -30,13 +30,12 @@ class HttpPaymentsClient implements PaymentsClient {
   ) {}
 
   async getFxRate(base: string, quote: string, ctx: RequestContext = {}): Promise<FxRate> {
-    const lookupQuote = quote === "KRW" ? "KWR" : quote;
     try {
       const headers = requestHeaders(ctx);
       return await withRetry(
         () =>
           this.client.get<FxRate>(
-            `/fx/${encodeURIComponent(base)}/${encodeURIComponent(lookupQuote)}`,
+            `/fx/${encodeURIComponent(base)}/${encodeURIComponent(quote)}`,
             headers ? { headers } : undefined
           ),
         { retries: 2, baseDelayMs: 40 }

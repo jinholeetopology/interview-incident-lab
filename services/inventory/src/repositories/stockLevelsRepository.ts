@@ -58,32 +58,19 @@ export class StockLevelsRepository {
     productId: string,
     qty: number
   ): Promise<StockLevelRow | null> {
-    const currentRows = await db.query<StockLevelRow>(
-      `
-        SELECT ${stockLevelColumns}
-        FROM stock_levels
-        WHERE warehouse_id = $1
-          AND product_id = $2
-      `,
-      [warehouseId, productId]
-    );
-
-    const current = currentRows[0];
-    if (!current || current.reserved < qty || current.onHand < qty) {
-      return null;
-    }
-
     const rows = await db.query<StockLevelRow>(
       `
         UPDATE stock_levels
-        SET on_hand = $3,
-            reserved = $4,
+        SET on_hand = on_hand - $3,
+            reserved = reserved - $3,
             updated_at = now()
         WHERE warehouse_id = $1
           AND product_id = $2
+          AND reserved >= $3
+          AND on_hand >= $3
         RETURNING ${stockLevelColumns}
       `,
-      [warehouseId, productId, current.onHand - qty, current.reserved - qty]
+      [warehouseId, productId, qty]
     );
 
     return rows[0] ?? null;

@@ -19,9 +19,12 @@ export function computeLocalUnitPrice(input: LocalPriceInput): LocalPriceResult 
   const ruleAdjustedPrice = winningRule
     ? applyPriceRule(input.product.basePriceCents, winningRule)
     : input.product.basePriceCents;
+  const unitPriceCents = winningRule?.ruleType === "override"
+    ? ruleAdjustedPrice
+    : applyTierMultiplier(ruleAdjustedPrice, input.customerTier);
 
   return {
-    unitPriceCents: applyTierMultiplier(ruleAdjustedPrice, input.customerTier),
+    unitPriceCents,
     appliedRuleIds: winningRule ? [winningRule.id] : []
   };
 }

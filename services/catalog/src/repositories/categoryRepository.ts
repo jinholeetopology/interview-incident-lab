@@ -13,7 +13,7 @@ export class CategoryRepository {
     const rows = await this.db.query<CategoryRow>(
       `select ${CATEGORY_COLUMNS}
        from categories
-       order by display_order asc, id asc
+       order by name asc, id asc
        limit $1 offset $2`,
       [pagination.limit, pagination.offset]
     );

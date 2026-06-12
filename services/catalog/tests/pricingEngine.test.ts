@@ -19,14 +19,14 @@ describe("computeLocalUnitPrice", () => {
     });
   });
 
-  it("applies tier multipliers after override rules", () => {
+  it("uses override rules as the final local unit price", () => {
     const result = computeLocalUnitPrice({
       product: product({ basePriceCents: 10_000 }),
       activeRules: [priceRule({ id: "override", ruleType: "override", value: 999, priority: 5 })],
       customerTier: "gold"
     });
 
-    expect(result.unitPriceCents).toBe(969);
+    expect(result.unitPriceCents).toBe(999);
     expect(result.appliedRuleIds).toEqual(["override"]);
   });
 
