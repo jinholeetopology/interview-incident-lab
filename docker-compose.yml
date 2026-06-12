@@ -1,0 +1,152 @@
+x-common-env: &common-env
+  DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas
+  REDIS_URL: redis://redis:6379
+  LOG_LEVEL: info
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+      POSTGRES_DB: atlas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrator:
+    build:
+      context: .
+      dockerfile: services/synthetic-monitor/Dockerfile
+    command: ["npx", "tsx", "scripts/migrate.ts"]
+    environment:
+      <<: *common-env
+      SEED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  catalog:
+    build:
+      context: .
+      dockerfile: services/catalog/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "7002"
+      PAYMENTS_URL: http://payments:7005
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+
+  inventory:
+    build:
+      context: .
+      dockerfile: services/inventory/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "7003"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+
+  orders:
+    build:
+      context: .
+      dockerfile: services/orders/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "7004"
+      CATALOG_URL: http://catalog:7002
+      INVENTORY_URL: http://inventory:7003
+      PAYMENTS_URL: http://payments:7005
+      SETTLEMENT_URL: http://settlement:7006
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+
+  payments:
+    build:
+      context: .
+      dockerfile: services/payments/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "7005"
+      SETTLEMENT_URL: http://settlement:7006
+      PSP_FAIL_RATE: "0"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+
+  settlement:
+    build:
+      context: .
+      dockerfile: services/settlement/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "7006"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      <<: *common-env
+      PORT: "8080"
+      GATEWAY_API_KEYS: demo-key-1,demo-key-2
+      CATALOG_URL: http://catalog:7002
+      INVENTORY_URL: http://inventory:7003
+      ORDERS_URL: http://orders:7004
+      PAYMENTS_URL: http://payments:7005
+      SETTLEMENT_URL: http://settlement:7006
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  synthetic-monitor:
+    build:
+      context: .
+      dockerfile: services/synthetic-monitor/Dockerfile
+    environment:
+      LOG_LEVEL: info
+      GATEWAY_URL: http://gateway:8080
+      API_KEY: demo-key-1
+      CYCLE_INTERVAL_MS: "15000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
