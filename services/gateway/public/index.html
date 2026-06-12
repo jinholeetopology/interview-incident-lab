@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atlas Commerce Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <div>
+            <h1>Atlas Commerce</h1>
+            <p id="readyText">gateway 확인 중</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <label class="api-key">
+            <span>API key</span>
+            <input id="apiKeyInput" autocomplete="off" value="demo-key-1" />
+          </label>
+          <button class="icon-button" id="refreshButton" type="button" title="새로고침" aria-label="새로고침">↻</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel catalog-panel" aria-labelledby="catalogTitle">
+          <div class="panel-header">
+            <div>
+              <h2 id="catalogTitle">상품</h2>
+              <p id="productCount">0 items</p>
+            </div>
+            <div class="toolbar">
+              <select id="categoryFilter" aria-label="카테고리">
+                <option value="">전체 카테고리</option>
+              </select>
+              <input id="searchInput" type="search" placeholder="SKU 또는 상품명" aria-label="상품 검색" />
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>상품명</th>
+                  <th>상태</th>
+                  <th class="num">기준가</th>
+                </tr>
+              </thead>
+              <tbody id="productRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="panel inspector-panel" aria-labelledby="inspectorTitle">
+          <div class="panel-header">
+            <div>
+              <h2 id="inspectorTitle">가격 / 재고</h2>
+              <p id="selectedProductText">상품 선택 대기</p>
+            </div>
+          </div>
+
+          <div class="quote-controls">
+            <label>
+              <span>Tier</span>
+              <select id="tierSelect">
+                <option value="standard">standard</option>
+                <option value="gold">gold</option>
+                <option value="platinum">platinum</option>
+              </select>
+            </label>
+            <label>
+              <span>Currency</span>
+              <select id="currencySelect">
+                <option value="KRW">KRW</option>
+                <option value="USD">USD</option>
+                <option value="JPY">JPY</option>
+              </select>
+            </label>
+            <label>
+              <span>Qty</span>
+              <input id="qtyInput" type="number" min="1" max="500" value="1" />
+            </label>
+            <button id="quoteButton" type="button">가격 확인</button>
+          </div>
+
+          <dl class="metrics">
+            <div>
+              <dt>단가</dt>
+              <dd id="unitPrice">-</dd>
+            </div>
+            <div>
+              <dt>총액</dt>
+              <dd id="totalPrice">-</dd>
+            </div>
+            <div>
+              <dt>적용 규칙</dt>
+              <dd id="appliedRules">-</dd>
+            </div>
+          </dl>
+
+          <div class="stock-list" id="stockList"></div>
+        </aside>
+
+        <section class="panel order-panel" aria-labelledby="orderTitle">
+          <div class="panel-header">
+            <div>
+              <h2 id="orderTitle">주문</h2>
+              <p id="orderCount">0 orders</p>
+            </div>
+            <div class="toolbar">
+              <select id="customerSelect" aria-label="고객"></select>
+              <button id="createOrderButton" type="button">주문 생성</button>
+            </div>
+          </div>
+          <div class="order-grid">
+            <div class="selected-order-product">
+              <span>선택 상품</span>
+              <strong id="orderProductName">-</strong>
+              <small id="orderProductSku">-</small>
+            </div>
+            <div class="table-wrap order-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>주문</th>
+                    <th>상태</th>
+                    <th class="num">총액</th>
+                    <th>작업</th>
+                  </tr>
+                </thead>
+                <tbody id="orderRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel settlement-panel" aria-labelledby="settlementTitle">
+          <div class="panel-header">
+            <div>
+              <h2 id="settlementTitle">정산</h2>
+              <p>daily report</p>
+            </div>
+            <div class="toolbar">
+              <input id="reportDate" type="date" />
+              <button id="reportButton" type="button">조회</button>
+            </div>
+          </div>
+          <div id="settlementRows" class="settlement-rows"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

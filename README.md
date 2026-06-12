@@ -10,6 +10,8 @@ docker compose up
 
 The compose stack starts PostgreSQL and Redis, runs migrations plus deterministic seed data, starts the six application services, waits for the gateway to become ready, then starts synthetic traffic. External traffic enters through the gateway on `http://localhost:8080`.
 
+The gateway also serves a lightweight operator console at `http://localhost:8080` for browsing products, checking price/stock, creating orders, and reviewing daily settlement totals.
+
 Seed API keys:
 
 ```text
