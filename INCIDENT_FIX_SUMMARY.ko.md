@@ -39,6 +39,56 @@
 
 또한 `price-rule-mutation` 시나리오는 캐시 무효화만 고쳐서는 통과하지 않았습니다. override rule의 의미가 "최종 가격 고정"인데 tier multiplier가 추가 적용되어 기대값 `12345`와 실제 계산값이 달라졌기 때문입니다. 그래서 가격 엔진에서 override rule은 tier multiplier를 적용하지 않도록 정리했습니다.
 
+## 수정이 맞는지 확인하는 근거
+
+이번 수정이 의도한 문제를 해결한다고 판단한 근거는 다음 네 단계입니다.
+
+### 1. 경보별 invariant를 코드 변경에 직접 연결
+
+각 synthetic monitor 경보를 먼저 서비스가 지켜야 하는 invariant로 바꾸고, 그 invariant가 깨지는 코드 지점을 수정했습니다.
+
+| 경보 | 지켜야 하는 invariant | 수정으로 보장한 내용 |
+|---|---|---|
+| `duplicate_charge` | 같은 payment intent와 idempotency key는 PSP capture를 한 번만 실행해야 함 | 안정적인 idempotency key와 `processing` 선점으로 동일 요청과 병렬 요청을 차단 |
+| `stale_price` | 가격 규칙 변경 직후 가격 조회는 새 규칙을 반영해야 함 | price cache를 직접 무효화하고 override 계산 의미를 정리 |
+| `stock_negative` | commit 후 `on_hand`와 `reserved`는 음수가 되면 안 됨 | 조건부 단일 UPDATE로 DB 레벨에서 `reserved >= qty`, `on_hand >= qty`를 확인 |
+| `order_total_zero` | 주문 총액은 가격 조회 실패나 FX 실패로 0원이 되면 안 됨 | FX 통화 오타를 제거하고 Docker 시나리오에서 주문 총액 invariant를 재검증 |
+| `http_error` | 정상 synthetic scenario는 5xx 또는 예상 밖 4xx를 만들면 안 됨 | category query, cancellation route, reservation release conflict mapping을 실제 gateway 경로 기준으로 수정 |
+
+### 2. 단위 테스트로 회귀 조건을 고정
+
+수정한 위험 경로에는 회귀 테스트를 추가했습니다.
+
+- 결제 capture는 동일 idempotency key 병렬 호출에서 provider capture가 한 번만 실행되는지 검증합니다.
+- 이미 `succeeded`인 intent는 PSP를 다시 호출하지 않는지 검증합니다.
+- `processing` 상태 intent는 중복 capture로 처리되는지 검증합니다.
+- 가격 규칙 생성 시 price cache invalidation이 호출되는지 검증합니다.
+- `KRW` FX 조회가 `/fx/USD/KRW`로 나가는지 검증합니다.
+- category 조회가 존재하지 않는 `display_order` 컬럼을 사용하지 않는지 검증합니다.
+- cancellation 중 inventory release 409가 orders에서도 409 conflict로 유지되는지 검증합니다.
+
+### 3. 타입체크와 migration으로 정적 안정성 확인
+
+전체 workspace typecheck를 실행해 서비스 간 타입 변경이 깨지지 않는지 확인했습니다. 또한 중복 번호였던 settlement migration을 `011`로 이동해 Docker DB 초기화 시 migration 순서 충돌이 나지 않도록 검증했습니다.
+
+### 4. Docker synthetic monitor로 실제 서비스 경로 검증
+
+단위 테스트만으로는 gateway, Redis cache, Postgres migration, 서비스 간 HTTP 호출, synthetic monitor 시나리오를 모두 보장할 수 없습니다. 그래서 Docker compose로 전체 서비스를 다시 띄우고 synthetic monitor를 여러 cycle 실행했습니다.
+
+최종 확인한 시나리오는 다음과 같습니다.
+
+- `browse-catalog`
+- `price-lookup`
+- `order-burst`
+- `price-rule-mutation`
+- `payment-retry-storm`
+- `cancellations`
+- `settlement-report`
+
+최종 로그에서 `ALERT`가 발생하지 않았기 때문에, 이 lab이 명시한 주요 운영 증상은 현재 수정 브랜치에서 재현되지 않는다고 판단했습니다.
+
+다만 이것은 "현재 synthetic monitor와 추가 테스트가 포착하는 범위에서의 보장"입니다. 모든 운영 장애 가능성을 수학적으로 증명한 것은 아니며, 아래 남은 리스크는 별도 보완이 필요합니다.
+
 ## 검증 결과
 
 다음 검증을 완료했습니다.
