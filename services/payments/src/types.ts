@@ -12,6 +12,7 @@ export interface PaymentIntent {
   currency: string;
   status: IntentStatus;
   idempotencyKey: string;
+  providerRef?: string;
   createdAt: string;
   updatedAt: string;
 }

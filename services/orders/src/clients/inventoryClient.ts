@@ -1,6 +1,6 @@
 import type { Logger, ServiceClient } from "@atlas/shared";
 import { withRetry } from "@atlas/shared";
-import { insufficientStockError } from "../domain/errors.js";
+import { insufficientStockError, orderConflictError } from "../domain/errors.js";
 import type { RequestContext } from "../requestContext.js";
 import type { ReadyClient, ReservationResponse } from "./types.js";
 import { isUpstreamError, logAndMapUpstream } from "./upstream.js";
@@ -68,6 +68,17 @@ export const createInventoryClient = (
       await client.post(`/reservations/${encodeURIComponent(reservationId)}/release`);
     } catch (err) {
       if (isUpstreamError(err)) {
+        if (err.status === 409) {
+          logger.warn("inventory reservation release conflict", {
+            ...ctx,
+            reservationId,
+            status: err.status,
+            body: err.body
+          });
+          throw orderConflictError("RESERVATION_RELEASE_CONFLICT", "Reservation cannot be released", {
+            reservationId
+          });
+        }
         throw logAndMapUpstream(
           err,
           logger,

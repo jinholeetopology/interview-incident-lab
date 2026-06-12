@@ -20,7 +20,7 @@ export const cancellationScenario: Scenario = {
     }
     assertOrderTotals(ctx.alerts, order.body);
 
-    const cancelled = await ctx.client.post<OrderResponse>(`/api/orders/${order.body.id}/cancel`, {});
+    const cancelled = await ctx.client.post<OrderResponse>(`/api/orders/orders/${order.body.id}/cancel`, {});
     alertOnHttpError(ctx.alerts, cancelled, [409, 422]);
   }
 };

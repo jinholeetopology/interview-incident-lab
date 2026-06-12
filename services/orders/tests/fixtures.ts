@@ -96,7 +96,7 @@ export const makePlaceOrderDeps = (
       categoryId: "33333333-3333-4333-8333-333333333333",
       basePriceCents: 1200,
       currency: "USD",
-      status: "active",
+      status: "active" as const,
       createdAt: "2026-06-12T00:00:00.000Z",
       updatedAt: "2026-06-12T00:00:00.000Z"
     })),
@@ -113,7 +113,7 @@ export const makePlaceOrderDeps = (
   const inventory: InventoryClient = {
     createReservation: vi.fn(async () => ({
       id: "reservation-1",
-      status: "pending",
+      status: "pending" as const,
       lines: [
         {
           productId: "22222222-2222-4222-8222-222222222222",
@@ -133,7 +133,7 @@ export const makePlaceOrderDeps = (
       orderId: "order-1",
       amountCents: 2400,
       currency: "USD",
-      status: "requires_capture",
+      status: "requires_capture" as const,
       idempotencyKey: "order:order-1",
       createdAt: "2026-06-12T00:00:00.000Z",
       updatedAt: "2026-06-12T00:00:00.000Z"
@@ -143,7 +143,7 @@ export const makePlaceOrderDeps = (
       orderId: "order-1",
       amountCents: 2400,
       currency: "USD",
-      status: "succeeded",
+      status: "succeeded" as const,
       idempotencyKey: "order:order-1",
       createdAt: "2026-06-12T00:00:00.000Z",
       updatedAt: "2026-06-12T00:00:01.000Z"
@@ -153,7 +153,7 @@ export const makePlaceOrderDeps = (
       orderId: "order-1",
       amountCents: 2400,
       currency: "USD",
-      status: "voided",
+      status: "voided" as const,
       idempotencyKey: "order:order-1",
       createdAt: "2026-06-12T00:00:00.000Z",
       updatedAt: "2026-06-12T00:00:01.000Z"
